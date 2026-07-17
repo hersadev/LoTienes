@@ -1,0 +1,47 @@
+# Modo desarrollo: el código se monta desde tu carpeta (hot reload en ambos),
+# pero node_modules viven en volúmenes propios del contenedor, para que los
+# binarios nativos (better-sqlite3) sean siempre los de Linux y no los de tu Mac/PC.
+#
+#   docker compose up --build
+#
+# App web:  http://localhost:8081
+# API:      http://localhost:3001
+#
+# Si cambias dependencias (package.json), recrea los volúmenes de node_modules:
+#   docker compose up --build --renew-anon-volumes
+
+services:
+  backend:
+    build: ./backend
+    command: npm run dev
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+      - backend_db:/data
+    environment:
+      - DB_PATH=/data/lotienes.db
+
+  app:
+    build: ./app
+    # CI=1: modo no interactivo y sin intentar abrir un navegador (no hay dentro del contenedor)
+    command: npx expo start
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./app:/app
+      - /app/node_modules
+      - /app/.expo
+    environment:
+      - CI=1
+      - EXPO_NO_TELEMETRY=1
+    tty: true
+    stdin_open: true
+    depends_on:
+      - backend
+
+volumes:
+  # La base de datos vive en un volumen, no en tu carpeta: cada ordenador
+  # tendrá sus propios datos de prueba y no se pisan al sincronizar el código.
+  backend_db:
