@@ -27,6 +27,11 @@ export default function AppTabs() {
           renderingMode="template"
         />
       </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="amigos">
+        <NativeTabs.Trigger.Label>Amigos</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="person.2.fill" md="group" />
+      </NativeTabs.Trigger>
     </NativeTabs>
   );
 }

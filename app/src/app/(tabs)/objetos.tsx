@@ -7,11 +7,13 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { api, CURRENT_USER_ID } from '@/lib/api';
+import { api } from '@/lib/api';
+import { useSession } from '@/lib/session';
 import type { Item } from '@/lib/types';
 
 export default function ItemsScreen() {
   const theme = useTheme();
+  const userId = useSession().user?.id;
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -54,8 +56,8 @@ export default function ItemsScreen() {
     }
   };
 
-  const mine = items.filter((i) => i.owner_id === CURRENT_USER_ID);
-  const others = items.filter((i) => i.owner_id !== CURRENT_USER_ID);
+  const mine = items.filter((i) => i.owner_id === userId);
+  const others = items.filter((i) => i.owner_id !== userId);
 
   return (
     <ThemedView style={styles.container}>
