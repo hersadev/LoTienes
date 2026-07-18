@@ -59,21 +59,31 @@ Desde ahí: pulsa `w` para abrirla en el navegador, o escanea el QR con Expo Go.
 
 ## Estado actual (esqueleto)
 
-- Sin login todavía: el usuario "logueado" se fija en `app/src/lib/api.ts`
-  (`CURRENT_USER_ID`; el seed crea 1 = Juanjo, 2 = Ana, 3 = Luis). Cámbialo y
-  recarga para probar los dos lados de un préstamo.
-- Flujo completo ya funcional: pedir prestado → aceptar/rechazar → marcar devuelto.
-- La API usa el header `x-user-id` como auth provisional.
+- Entrada sin contraseña: al abrir la app eliges tu usuario o creas una cuenta
+  (auth provisional con el header `x-user-id`; el seed crea Juanjo, Ana y Luis).
+  La sesión se guarda en el navegador; en el móvil se pierde al cerrar la app.
+- Amigos e invitaciones por enlace: en la pestaña **Amigos**, "Invitar a un
+  amigo" crea un enlace `/invitacion/<token>` y abre la hoja de compartir.
+  Quien lo abre sin cuenta se registra ahí mismo (o entra con su email) y
+  quedáis como amigos; también puede abrirlo en la app (`lotienes://`).
+- Los objetos solo se ven entre amigos, y solo se puede pedir prestado a amigos.
+- Flujo completo de préstamos: pedir prestado → aceptar/rechazar → marcar devuelto.
+- El dominio de los enlaces de invitación sale de `PUBLIC_WEB_URL` en el
+  backend (por defecto `http://localhost:8081`); en producción sería el real.
 
 ## Modelo de datos
 
-- `users` — usuarios/amigos.
-- `items` — objetos que cada uno ofrece.
+- `users` — usuarios.
+- `friendships` — parejas de amigos (una fila por pareja).
+- `invites` — invitaciones por enlace: token, quién invita y quién la aceptó.
+- `items` — objetos que cada uno ofrece (visibles solo para amigos).
 - `loans` — solicitudes/préstamos con estados: `pendiente` → `aceptado` → `devuelto` (o `rechazado`), con fechas de solicitud, aceptación, devolución y fecha límite (`due_date`).
 
 ## Próximos pasos (pendiente)
 
-- Autenticación real (registro/login) y sistema de amigos.
+- Autenticación real (contraseñas o enlace mágico por email).
+- Publicar la app en las stores y universal links (que el enlace de invitación
+  abra la app directamente si está instalada).
 - Notificaciones push cuando llega una solicitud.
 - Fotos de los objetos.
 - Elegir fecha de devolución al pedir/aceptar.

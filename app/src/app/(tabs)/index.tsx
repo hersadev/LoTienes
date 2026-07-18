@@ -6,10 +6,12 @@ import { Button } from '@/components/button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-import { api, CURRENT_USER_ID } from '@/lib/api';
+import { api } from '@/lib/api';
+import { useSession } from '@/lib/session';
 import type { Loan } from '@/lib/types';
 
 export default function LoansScreen() {
+  const userId = useSession().user?.id;
   const [loans, setLoans] = useState<Loan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -58,7 +60,7 @@ export default function LoansScreen() {
 
           <Section title="Solicitudes pendientes" empty="No hay solicitudes" loans={pending}>
             {(loan) =>
-              loan.owner_id === CURRENT_USER_ID ? (
+              loan.owner_id === userId ? (
                 <View style={styles.actions}>
                   <Button label="Aceptar" onPress={() => act(loan.id, 'accept')} />
                   <Button label="Rechazar" variant="danger" onPress={() => act(loan.id, 'reject')} />
@@ -75,7 +77,7 @@ export default function LoansScreen() {
             {(loan) => (
               <View style={styles.actions}>
                 <ThemedText type="small" themeColor="textSecondary">
-                  Lo tiene {loan.borrower_id === CURRENT_USER_ID ? 'tú' : loan.borrower_name}
+                  Lo tiene {loan.borrower_id === userId ? 'tú' : loan.borrower_name}
                   {loan.due_date ? ` · devolver antes del ${loan.due_date}` : ''}
                 </ThemedText>
                 <Button label="Marcar devuelto" onPress={() => act(loan.id, 'return')} />

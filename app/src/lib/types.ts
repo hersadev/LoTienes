@@ -12,6 +12,36 @@ export interface Item {
   owner_name?: string;
 }
 
+export interface Friend extends User {
+  friends_since: string;
+}
+
+export type InviteStatus = 'pendiente' | 'aceptada';
+
+export interface Invite {
+  id: number;
+  token: string;
+  inviter_id: number;
+  status: InviteStatus;
+  created_at: string;
+  accepted_by: number | null;
+  accepted_at: string | null;
+  accepted_by_name?: string | null;
+  url: string;
+}
+
+// Lo que ve quien abre un enlace de invitación, sin necesidad de cuenta
+export interface InviteInfo {
+  status: InviteStatus;
+  inviter_id: number;
+  inviter_name: string;
+}
+
+export interface AcceptInviteResult {
+  user: User;
+  inviter: { id: number; name: string };
+}
+
 export type LoanStatus = 'pendiente' | 'aceptado' | 'rechazado' | 'devuelto';
 
 export interface Loan {
