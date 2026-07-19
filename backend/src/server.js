@@ -5,7 +5,8 @@ import { areFriends, db, makeFriends } from "./db.js";
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+// Límite alto porque la foto de la ficha viaja como data URI en el body
+app.use(express.json({ limit: "15mb" }));
 
 // Base pública de la web, para construir los enlaces de invitación que se
 // comparten. En producción sería el dominio real (con universal links).
@@ -25,7 +26,8 @@ function currentUser(req, res) {
 }
 
 const loanQuery = `
-  SELECT loans.*, items.name AS item_name,
+  SELECT loans.*, items.name AS item_name, items.photo AS item_photo,
+         items.category AS item_category,
          owner.name AS owner_name, borrower.name AS borrower_name
   FROM loans
   JOIN items ON items.id = loans.item_id
@@ -151,14 +153,19 @@ app.post("/api/invites/:token/accept", (req, res) => {
 
 // ---- Objetos ----
 
-// Solo se ven los objetos propios y los de tus amigos
+// Solo se ven los objetos propios y los de tus amigos. Se incluye el préstamo
+// activo (si lo hay) para que la app sepa si el objeto está disponible.
 app.get("/api/items", (req, res) => {
   const user = currentUser(req, res);
   if (!user) return;
   const rows = db
     .prepare(
-      `SELECT items.*, users.name AS owner_name
-       FROM items JOIN users ON users.id = items.owner_id
+      `SELECT items.*, users.name AS owner_name,
+              loans.status AS loan_status, borrower.name AS loan_borrower_name
+       FROM items
+       JOIN users ON users.id = items.owner_id
+       LEFT JOIN loans ON loans.item_id = items.id AND loans.status IN ('pendiente', 'aceptado')
+       LEFT JOIN users AS borrower ON borrower.id = loans.borrower_id
        WHERE items.owner_id = ?
           OR EXISTS (
             SELECT 1 FROM friendships
@@ -170,14 +177,25 @@ app.get("/api/items", (req, res) => {
   res.json(rows);
 });
 
+// Registrar la ficha de un objeto: nombre, foto, estado y categoría, todo
+// obligatorio (lo único opcional del flujo es la fecha de devolución, en el préstamo).
 app.post("/api/items", (req, res) => {
   const user = currentUser(req, res);
   if (!user) return;
-  const { name, description = "" } = req.body;
+  const name = (req.body?.name ?? "").trim();
+  const description = (req.body?.description ?? "").trim();
+  const category = (req.body?.category ?? "").trim();
+  const photo = req.body?.photo ?? "";
   if (!name) return res.status(400).json({ error: "Falta el nombre del objeto" });
+  if (!description)
+    return res.status(400).json({ error: "Falta la descripción del estado del objeto" });
+  if (!category) return res.status(400).json({ error: "Falta la categoría" });
+  if (!photo) return res.status(400).json({ error: "Falta la foto del objeto" });
   const info = db
-    .prepare("INSERT INTO items (owner_id, name, description) VALUES (?, ?, ?)")
-    .run(user.id, name, description);
+    .prepare(
+      "INSERT INTO items (owner_id, name, description, category, photo) VALUES (?, ?, ?, ?, ?)"
+    )
+    .run(user.id, name, description, category, photo);
   res.status(201).json(db.prepare("SELECT * FROM items WHERE id = ?").get(info.lastInsertRowid));
 });
 
@@ -193,40 +211,46 @@ app.get("/api/loans", (req, res) => {
   res.json(rows);
 });
 
-// Pedir prestado un objeto: crea la solicitud en estado 'pendiente'
+// Prestar un objeto: el dueño crea el préstamo y se lo ofrece a un amigo.
+// Queda 'pendiente' hasta que el amigo lo acepte. La fecha de devolución es opcional.
 app.post("/api/loans", (req, res) => {
   const user = currentUser(req, res);
   if (!user) return;
-  const { item_id, message = "", due_date = null } = req.body;
+  const { item_id, borrower_id, start_date, due_date = null, message = "" } = req.body;
   const item = db.prepare("SELECT * FROM items WHERE id = ?").get(item_id);
   if (!item) return res.status(404).json({ error: "Objeto no encontrado" });
-  if (item.owner_id === user.id)
-    return res.status(400).json({ error: "No puedes pedirte prestado tu propio objeto" });
-  if (!areFriends(user.id, item.owner_id))
-    return res.status(403).json({ error: "Solo puedes pedir prestado a tus amigos" });
+  if (item.owner_id !== user.id)
+    return res.status(403).json({ error: "Solo puedes prestar tus propios objetos" });
+  const borrower = db.prepare("SELECT * FROM users WHERE id = ?").get(borrower_id);
+  if (!borrower) return res.status(404).json({ error: "Amigo no encontrado" });
+  if (borrower.id === user.id)
+    return res.status(400).json({ error: "No puedes prestarte un objeto a ti mismo" });
+  if (!areFriends(user.id, borrower.id))
+    return res.status(403).json({ error: "Solo puedes prestar a tus amigos" });
+  if (!start_date) return res.status(400).json({ error: "Falta la fecha del préstamo" });
 
   const active = db
     .prepare("SELECT id FROM loans WHERE item_id = ? AND status IN ('pendiente', 'aceptado')")
     .get(item_id);
   if (active)
-    return res.status(409).json({ error: "Ese objeto ya tiene una solicitud o préstamo activo" });
+    return res.status(409).json({ error: "Ese objeto ya tiene un préstamo activo o pendiente" });
 
   const info = db
     .prepare(
-      `INSERT INTO loans (item_id, owner_id, borrower_id, message, due_date)
-       VALUES (?, ?, ?, ?, ?)`
+      `INSERT INTO loans (item_id, owner_id, borrower_id, message, start_date, due_date)
+       VALUES (?, ?, ?, ?, ?, ?)`
     )
-    .run(item_id, item.owner_id, user.id, message, due_date);
+    .run(item_id, user.id, borrower.id, message, start_date, due_date);
   res.status(201).json(db.prepare(`${loanQuery} WHERE loans.id = ?`).get(info.lastInsertRowid));
 });
 
 // Transiciones de estado. Quién puede hacer qué:
-//   aceptar/rechazar -> solo el dueño, sobre una solicitud pendiente
-//   devolver         -> dueño o prestatario, sobre un préstamo aceptado
+//   aceptar/rechazar -> solo el amigo invitado (borrower), sobre una invitación pendiente
+//   devolver         -> solo el dueño, cuando le devuelven el objeto
 const transitions = {
-  accept: { from: "pendiente", to: "aceptado", ownerOnly: true, stamp: "accepted_at" },
-  reject: { from: "pendiente", to: "rechazado", ownerOnly: true, stamp: null },
-  return: { from: "aceptado", to: "devuelto", ownerOnly: false, stamp: "returned_at" },
+  accept: { from: "pendiente", to: "aceptado", by: "borrower", stamp: "accepted_at" },
+  reject: { from: "pendiente", to: "rechazado", by: "borrower", stamp: null },
+  return: { from: "aceptado", to: "devuelto", by: "owner", stamp: "returned_at" },
 };
 
 app.post("/api/loans/:id/:action", (req, res) => {
@@ -239,9 +263,7 @@ app.post("/api/loans/:id/:action", (req, res) => {
   if (!loan) return res.status(404).json({ error: "Préstamo no encontrado" });
   if (loan.status !== t.from)
     return res.status(409).json({ error: `El préstamo está en estado '${loan.status}'` });
-  const allowed = t.ownerOnly
-    ? loan.owner_id === user.id
-    : loan.owner_id === user.id || loan.borrower_id === user.id;
+  const allowed = t.by === "owner" ? loan.owner_id === user.id : loan.borrower_id === user.id;
   if (!allowed) return res.status(403).json({ error: "No puedes hacer eso en este préstamo" });
 
   const stamp = t.stamp ? `, ${t.stamp} = datetime('now')` : "";

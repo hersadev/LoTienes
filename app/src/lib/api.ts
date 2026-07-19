@@ -45,17 +45,23 @@ export const api = {
     }),
 
   items: () => request<Item[]>('/api/items'),
-  createItem: (name: string, description = '') =>
+  createItem: (data: { name: string; description: string; category: string; photo: string }) =>
     request<Item>('/api/items', {
       method: 'POST',
-      body: JSON.stringify({ name, description }),
+      body: JSON.stringify(data),
     }),
 
   loans: () => request<Loan[]>('/api/loans'),
-  requestLoan: (item_id: number, message = '', due_date: string | null = null) =>
+  // El dueño ofrece el préstamo de un objeto suyo a un amigo
+  createLoan: (data: {
+    item_id: number;
+    borrower_id: number;
+    start_date: string;
+    due_date?: string | null;
+  }) =>
     request<Loan>('/api/loans', {
       method: 'POST',
-      body: JSON.stringify({ item_id, message, due_date }),
+      body: JSON.stringify(data),
     }),
   loanAction: (id: number, action: 'accept' | 'reject' | 'return') =>
     request<Loan>(`/api/loans/${id}/${action}`, { method: 'POST' }),

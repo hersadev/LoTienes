@@ -1,3 +1,4 @@
+import { Image } from 'expo-image';
 import { useCallback, useEffect, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -42,7 +43,7 @@ export default function LoansScreen() {
 
   const pending = loans.filter((l) => l.status === 'pendiente');
   const active = loans.filter((l) => l.status === 'aceptado');
-  const history = loans.filter((l) => l.status === 'rechazado' || l.status === 'devuelto');
+  const past = loans.filter((l) => l.status === 'rechazado' || l.status === 'devuelto');
 
   return (
     <ThemedView style={styles.container}>
@@ -58,37 +59,48 @@ export default function LoansScreen() {
             </ThemedText>
           )}
 
-          <Section title="Solicitudes pendientes" empty="No hay solicitudes" loans={pending}>
+          <Section
+            title="Invitaciones de préstamo"
+            empty="No hay invitaciones pendientes"
+            loans={pending}
+            userId={userId}>
             {(loan) =>
-              loan.owner_id === userId ? (
+              loan.borrower_id === userId ? (
                 <View style={styles.actions}>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {loan.owner_name} quiere prestarte este objeto
+                  </ThemedText>
                   <Button label="Aceptar" onPress={() => act(loan.id, 'accept')} />
                   <Button label="Rechazar" variant="danger" onPress={() => act(loan.id, 'reject')} />
                 </View>
               ) : (
                 <ThemedText type="small" themeColor="textSecondary">
-                  Esperando respuesta de {loan.owner_name}
+                  Esperando a que {loan.borrower_name} acepte
                 </ThemedText>
               )
             }
           </Section>
 
-          <Section title="En curso" empty="Nada prestado ahora mismo" loans={active}>
+          <Section title="En curso" empty="Nada prestado ahora mismo" loans={active} userId={userId}>
             {(loan) => (
               <View style={styles.actions}>
                 <ThemedText type="small" themeColor="textSecondary">
                   Lo tiene {loan.borrower_id === userId ? 'tú' : loan.borrower_name}
                   {loan.due_date ? ` · devolver antes del ${loan.due_date}` : ''}
                 </ThemedText>
-                <Button label="Marcar devuelto" onPress={() => act(loan.id, 'return')} />
+                {loan.owner_id === userId && (
+                  <Button label="Marcar devuelto" onPress={() => act(loan.id, 'return')} />
+                )}
               </View>
             )}
           </Section>
 
-          <Section title="Historial" empty="Sin historial todavía" loans={history}>
+          <Section title="Préstamos pasados" empty="Sin préstamos pasados todavía" loans={past} userId={userId}>
             {(loan) => (
               <ThemedText type="small" themeColor="textSecondary">
-                {loan.status === 'devuelto' ? `Devuelto el ${loan.returned_at}` : 'Rechazado'}
+                {loan.status === 'devuelto'
+                  ? `Devuelto el ${loan.returned_at}`
+                  : `${loan.borrower_name} no aceptó el préstamo`}
               </ThemedText>
             )}
           </Section>
@@ -102,11 +114,13 @@ function Section({
   title,
   empty,
   loans,
+  userId,
   children,
 }: {
   title: string;
   empty: string;
   loans: Loan[];
+  userId?: number;
   children: (loan: Loan) => React.ReactNode;
 }) {
   return (
@@ -119,10 +133,18 @@ function Section({
       )}
       {loans.map((loan) => (
         <ThemedView key={loan.id} type="backgroundElement" style={styles.card}>
-          <ThemedText>{loan.item_name}</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
-            {loan.owner_name} → {loan.borrower_name} · pedido el {loan.requested_at}
-          </ThemedText>
+          <View style={styles.cardRow}>
+            {!!loan.item_photo && (
+              <Image source={{ uri: loan.item_photo }} style={styles.photo} contentFit="cover" />
+            )}
+            <View style={styles.cardInfo}>
+              <ThemedText>{loan.item_name}</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                {loan.owner_id === userId ? `Prestado a ${loan.borrower_name}` : `Te lo presta ${loan.owner_name}`}
+                {loan.start_date ? ` · desde el ${loan.start_date}` : ''}
+              </ThemedText>
+            </View>
+          </View>
           {children(loan)}
         </ThemedView>
       ))}
@@ -153,6 +175,20 @@ const styles = StyleSheet.create({
     padding: Spacing.three,
     borderRadius: Spacing.three,
     gap: Spacing.two,
+  },
+  cardRow: {
+    flexDirection: 'row',
+    gap: Spacing.three,
+    alignItems: 'center',
+  },
+  cardInfo: {
+    flex: 1,
+    gap: Spacing.half,
+  },
+  photo: {
+    width: 48,
+    height: 48,
+    borderRadius: Spacing.two,
   },
   actions: {
     flexDirection: 'row',
