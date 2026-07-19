@@ -9,18 +9,36 @@ import { Platform } from 'react-native';
 
 export const Colors = {
   light: {
-    text: '#000000',
+    text: '#111113',
     background: '#ffffff',
-    backgroundElement: '#F0F0F3',
+    backgroundElement: '#F4F4F6',
     backgroundSelected: '#E0E1E6',
     textSecondary: '#60646C',
+    // Color de marca (teal): acciones principales y estados positivos
+    tint: '#0D9488',
+    onTint: '#FFFFFF',
+    tintSoft: '#D7F4EF',
+    // Estados
+    warning: '#A16207',
+    warningSoft: '#FBF0D2',
+    danger: '#DC2626',
+    dangerSoft: '#FCE5E5',
+    border: '#E7E8EC',
   },
   dark: {
     text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
+    background: '#0B0B0C',
+    backgroundElement: '#1C1D20',
     backgroundSelected: '#2E3135',
     textSecondary: '#B0B4BA',
+    tint: '#2DD4BF',
+    onTint: '#03231F',
+    tintSoft: '#11332E',
+    warning: '#FBBF24',
+    warningSoft: '#33280F',
+    danger: '#F87171',
+    dangerSoft: '#3A1818',
+    border: '#292B2F',
   },
 } as const;
 
