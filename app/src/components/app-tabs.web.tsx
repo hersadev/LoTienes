@@ -6,7 +6,7 @@ import {
   TabTriggerSlotProps,
   TabListProps,
 } from 'expo-router/ui';
-import { Pressable, View, StyleSheet } from 'react-native';
+import { Pressable, View, StyleSheet, useWindowDimensions } from 'react-native';
 
 import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
@@ -34,12 +34,18 @@ export default function AppTabs() {
   );
 }
 
+// Por debajo de este ancho la barra pasa a modo compacto (menos padding);
+// por debajo de BrandMinWidth el logo no cabe junto a las tres pestañas.
+const CompactWidth = 480;
+const BrandMinWidth = 400;
+
 export function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps) {
+  const compact = useWindowDimensions().width < CompactWidth;
   return (
-    <Pressable {...props} style={({ pressed }) => pressed && styles.pressed}>
+    <Pressable {...props} hitSlop={10} style={({ pressed }) => pressed && styles.pressed}>
       <ThemedView
         type={isFocused ? 'tintSoft' : 'backgroundElement'}
-        style={styles.tabButtonView}>
+        style={[styles.tabButtonView, compact && styles.tabButtonCompact]}>
         <ThemedText
           type={isFocused ? 'smallBold' : 'small'}
           themeColor={isFocused ? 'tint' : 'textSecondary'}>
@@ -51,12 +57,23 @@ export function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps
 }
 
 export function CustomTabList(props: TabListProps) {
+  const { width } = useWindowDimensions();
+  const compact = width < CompactWidth;
+  const showBrand = width >= BrandMinWidth;
   return (
-    <View {...props} style={styles.tabListContainer}>
-      <ThemedView type="backgroundElement" style={styles.innerContainer}>
-        <ThemedText type="smallBold" style={styles.brandText}>
-          Lo<ThemedText type="smallBold" themeColor="tint">Tienes</ThemedText>
-        </ThemedText>
+    <View {...props} style={[styles.tabListContainer, compact && styles.tabListCompact]}>
+      <ThemedView
+        type="backgroundElement"
+        style={[
+          styles.innerContainer,
+          compact && styles.innerCompact,
+          !showBrand && styles.innerCentered,
+        ]}>
+        {showBrand && (
+          <ThemedText type="smallBold" style={styles.brandText}>
+            Lo<ThemedText type="smallBold" themeColor="tint">Tienes</ThemedText>
+          </ThemedText>
+        )}
 
         {props.children}
       </ThemedView>
@@ -73,6 +90,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
   },
+  tabListCompact: {
+    padding: Spacing.two,
+  },
   innerContainer: {
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.five,
@@ -82,6 +102,12 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     gap: Spacing.two,
     maxWidth: MaxContentWidth,
+  },
+  innerCompact: {
+    paddingHorizontal: Spacing.three,
+  },
+  innerCentered: {
+    justifyContent: 'center',
   },
   brandText: {
     marginRight: 'auto',
@@ -93,5 +119,8 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.one,
     paddingHorizontal: Spacing.three,
     borderRadius: Spacing.three,
+  },
+  tabButtonCompact: {
+    paddingHorizontal: Spacing.two,
   },
 });
