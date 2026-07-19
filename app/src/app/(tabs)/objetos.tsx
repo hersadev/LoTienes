@@ -365,7 +365,12 @@ function FriendChip({
           },
         ]}>
         <Avatar name={friend.name} size={24} />
-        <ThemedText type={selected ? 'smallBold' : 'small'}>{friend.name}</ThemedText>
+        <ThemedText
+          type={selected ? 'smallBold' : 'small'}
+          numberOfLines={1}
+          style={styles.friendChipName}>
+          {friend.name}
+        </ThemedText>
       </View>
     </Pressable>
   );
@@ -531,6 +536,10 @@ const styles = StyleSheet.create({
     paddingRight: Spacing.three,
     borderRadius: 999,
     borderWidth: 1,
+    maxWidth: '100%',
+  },
+  friendChipName: {
+    flexShrink: 1,
   },
   pressed: {
     opacity: 0.7,
