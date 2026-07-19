@@ -16,18 +16,21 @@ db.exec(`
     email TEXT NOT NULL UNIQUE
   );
 
+  -- Ficha del objeto: nombre, foto (data URI), estado y categoría (para filtrar)
   CREATE TABLE IF NOT EXISTS items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     owner_id INTEGER NOT NULL REFERENCES users(id),
     name TEXT NOT NULL,
-    description TEXT DEFAULT ''
+    description TEXT DEFAULT '',
+    photo TEXT DEFAULT '',
+    category TEXT DEFAULT ''
   );
 
-  -- Una solicitud/préstamo. Estados:
-  --   pendiente  -> el amigo ha pedido el objeto, falta que el dueño acepte
+  -- Un préstamo. Lo crea el dueño ofreciéndoselo a un amigo. Estados:
+  --   pendiente  -> invitación enviada, falta que el amigo acepte
   --   aceptado   -> préstamo activo, lo tiene el borrower
-  --   rechazado  -> el dueño dijo que no
-  --   devuelto   -> préstamo cerrado
+  --   rechazado  -> el amigo dijo que no
+  --   devuelto   -> el dueño lo marcó como devuelto (préstamo pasado)
   CREATE TABLE IF NOT EXISTS loans (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     item_id INTEGER NOT NULL REFERENCES items(id),
@@ -36,6 +39,7 @@ db.exec(`
     status TEXT NOT NULL DEFAULT 'pendiente'
       CHECK (status IN ('pendiente', 'aceptado', 'rechazado', 'devuelto')),
     message TEXT DEFAULT '',
+    start_date TEXT,
     due_date TEXT,
     requested_at TEXT NOT NULL DEFAULT (datetime('now')),
     accepted_at TEXT,
@@ -64,6 +68,15 @@ db.exec(`
   );
 `);
 
+// Migración mínima para bases creadas antes de estas columnas
+function addColumnIfMissing(table, column, ddl) {
+  const exists = db.prepare(`SELECT 1 FROM pragma_table_info(?) WHERE name = ?`).get(table, column);
+  if (!exists) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${ddl}`);
+}
+addColumnIfMissing("items", "photo", "TEXT DEFAULT ''");
+addColumnIfMissing("items", "category", "TEXT DEFAULT ''");
+addColumnIfMissing("loans", "start_date", "TEXT");
+
 const pair = (a, b) => (a < b ? [a, b] : [b, a]);
 
 export function areFriends(a, b) {
@@ -85,11 +98,11 @@ if (!hasUsers) {
   insertUser.run("Luis", "luis@example.com");
 
   const insertItem = db.prepare(
-    "INSERT INTO items (owner_id, name, description) VALUES (?, ?, ?)"
+    "INSERT INTO items (owner_id, name, description, category) VALUES (?, ?, ?, ?)"
   );
-  insertItem.run(juanjo, "Taladro", "Taladro percutor Bosch");
-  insertItem.run(juanjo, "Dune (libro)", "Edición de bolsillo");
-  insertItem.run(ana, "Tienda de campaña", "Para 4 personas");
+  insertItem.run(juanjo, "Taladro", "Taladro percutor Bosch, buen estado", "Herramientas");
+  insertItem.run(juanjo, "Dune (libro)", "Edición de bolsillo, algo desgastado", "Libros");
+  insertItem.run(ana, "Tienda de campaña", "Para 4 personas, como nueva", "Deporte");
 }
 
 // Los objetos ahora solo se ven entre amigos: si la base es anterior a la tabla
