@@ -52,6 +52,9 @@ export function LoginScreen() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // El error de registro se pinta junto al botón que lo provoca (el bloque de
+  // arriba queda fuera de pantalla en la landing de escritorio)
+  const [registerError, setRegisterError] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
 
@@ -73,10 +76,10 @@ export function LoginScreen() {
   const register = async () => {
     if (!name.trim() || !email.trim()) return;
     try {
-      setError(null);
+      setRegisterError(null);
       login(await api.register(name.trim(), email.trim()));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Error creando la cuenta');
+      setRegisterError(e instanceof Error ? e.message : 'Error creando la cuenta');
     }
   };
 
@@ -135,6 +138,11 @@ export function LoginScreen() {
             keyboardType="email-address"
             onSubmitEditing={register}
           />
+          {registerError && (
+            <ThemedText type="small" style={styles.error}>
+              {registerError}
+            </ThemedText>
+          )}
           <Button label="Crear cuenta y entrar" variant="primary" fullWidth onPress={register} />
         </Card>
       </View>
@@ -319,10 +327,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: Spacing.four,
     gap: Spacing.three,
-    shadowColor: '#0D9488',
-    shadowOpacity: 0.12,
-    shadowRadius: 32,
-    shadowOffset: { width: 0, height: 16 },
+    boxShadow: '0 16px 32px rgba(13, 148, 136, 0.12)',
   },
   // Formas decorativas del fondo (solo color de tema, sin imágenes)
   blob: {
