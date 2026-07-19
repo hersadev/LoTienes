@@ -1,19 +1,22 @@
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Avatar } from '@/components/avatar';
+import { Badge } from '@/components/badge';
 import { Button } from '@/components/button';
+import { Card } from '@/components/card';
+import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { api } from '@/lib/api';
+import { addDaysISO, formatDate, todayISO } from '@/lib/dates';
 import { useSession } from '@/lib/session';
 import { Categories, type Friend, type Item } from '@/lib/types';
-
-const todayISO = () => new Date().toISOString().slice(0, 10);
 
 export default function ItemsScreen() {
   const theme = useTheme();
@@ -89,7 +92,7 @@ export default function ItemsScreen() {
       setCategory(null);
       setPhoto(null);
       setShowForm(false);
-      setNotice('Objeto registrado');
+      setNotice('Objeto registrado ✅');
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error');
@@ -123,7 +126,7 @@ export default function ItemsScreen() {
         due_date: dueDate.trim() || null,
       });
       const friend = friends.find((f) => f.id === borrowerId);
-      setNotice(`Invitación de préstamo de "${item.name}" enviada a ${friend?.name}`);
+      setNotice(`Invitación de "${item.name}" enviada a ${friend?.name} ✅`);
       setLendItemId(null);
       await load();
     } catch (e) {
@@ -135,15 +138,18 @@ export default function ItemsScreen() {
   const mine = items.filter((i) => i.owner_id === userId && byFilter(i));
   const others = items.filter((i) => i.owner_id !== userId && byFilter(i));
 
-  const inputStyle = [styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }];
-
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <ScrollView
           contentContainerStyle={styles.scroll}
           refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}>
-          <ThemedText type="subtitle">Objetos</ThemedText>
+          <View style={styles.headerRow}>
+            <ThemedText type="subtitle">Objetos</ThemedText>
+            {!showForm && (
+              <Button label="＋ Añadir" variant="primary" size="sm" onPress={() => setShowForm(true)} />
+            )}
+          </View>
 
           {error && (
             <ThemedText type="small" style={styles.error}>
@@ -151,144 +157,142 @@ export default function ItemsScreen() {
             </ThemedText>
           )}
           {notice && (
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" style={{ color: theme.tint }}>
               {notice}
             </ThemedText>
           )}
 
-          <View style={styles.chipRow}>
+          {showForm && (
+            <Card>
+              <ThemedText type="smallBold">Ficha del objeto</ThemedText>
+
+              <Pressable onPress={pickPhoto} style={({ pressed }) => pressed && styles.pressed}>
+                {photo ? (
+                  <Image source={{ uri: photo }} style={styles.photoPreview} contentFit="cover" />
+                ) : (
+                  <View style={[styles.photoPlaceholder, { borderColor: theme.border }]}>
+                    <ThemedText style={styles.photoIcon}>📷</ThemedText>
+                    <ThemedText type="small" themeColor="textSecondary">
+                      Añadir foto
+                    </ThemedText>
+                  </View>
+                )}
+              </Pressable>
+              {photo && <Button label="Cambiar foto" size="sm" onPress={pickPhoto} />}
+
+              <TextField
+                label="Nombre"
+                value={name}
+                onChangeText={setName}
+                placeholder="P. ej. Taladro"
+              />
+              <TextField
+                label="Estado del objeto"
+                value={description}
+                onChangeText={setDescription}
+                placeholder="P. ej. como nuevo, le falta una pieza…"
+                multiline
+              />
+              <ThemedText type="small" themeColor="textSecondary">
+                Categoría
+              </ThemedText>
+              <View style={styles.chipWrap}>
+                {Categories.map((c) => (
+                  <Chip key={c} label={c} selected={category === c} onPress={() => setCategory(c)} />
+                ))}
+              </View>
+              <Button label="Guardar objeto" variant="primary" fullWidth onPress={addItem} />
+              <Button label="Cancelar" variant="plain" fullWidth onPress={() => setShowForm(false)} />
+            </Card>
+          )}
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.chipRow}
+            style={styles.chipScroll}>
             <Chip label="Todas" selected={!filter} onPress={() => setFilter(null)} />
             {Categories.map((c) => (
-              <Chip key={c} label={c} selected={filter === c} onPress={() => setFilter(filter === c ? null : c)} />
+              <Chip
+                key={c}
+                label={c}
+                selected={filter === c}
+                onPress={() => setFilter(filter === c ? null : c)}
+              />
             ))}
-          </View>
+          </ScrollView>
 
           <View style={styles.section}>
-            <ThemedText type="smallBold">Mis objetos</ThemedText>
+            <SectionTitle title="Mis objetos" count={mine.length} />
             {mine.length === 0 && (
-              <ThemedText type="small" themeColor="textSecondary">
-                Aún no has registrado objetos{filter ? ` de ${filter}` : ''}
-              </ThemedText>
+              <EmptyHint text={`Aún no has registrado objetos${filter ? ` de ${filter}` : ''}`} />
             )}
             {mine.map((item) => (
-              <ItemCard key={item.id} item={item}>
-                {item.loan_status === 'pendiente' && (
-                  <ThemedText type="small" themeColor="textSecondary">
-                    Invitación pendiente: esperando a {item.loan_borrower_name}
-                  </ThemedText>
-                )}
-                {item.loan_status === 'aceptado' && (
-                  <ThemedText type="small" themeColor="textSecondary">
-                    Prestado a {item.loan_borrower_name}
-                  </ThemedText>
-                )}
-                {!item.loan_status && (
-                  <Button label={lendItemId === item.id ? 'Cancelar' : 'Prestar'} onPress={() => openLend(item)} />
+              <ItemCard key={item.id} item={item} isMine>
+                {!item.loan_status && lendItemId !== item.id && (
+                  <View style={styles.cardActions}>
+                    <Button label="Prestar" variant="primary" size="sm" onPress={() => openLend(item)} />
+                  </View>
                 )}
 
                 {lendItemId === item.id && !item.loan_status && (
-                  <View style={styles.lendPanel}>
-                    <ThemedText type="small" themeColor="textSecondary">
-                      ¿A quién se lo prestas?
-                    </ThemedText>
+                  <View style={[styles.lendPanel, { borderTopColor: theme.border }]}>
+                    <ThemedText type="smallBold">¿A quién se lo prestas?</ThemedText>
                     {friends.length === 0 && (
-                      <ThemedText type="small" themeColor="textSecondary">
-                        Todavía no tienes amigos: invita a alguien desde la pestaña Amigos
-                      </ThemedText>
+                      <EmptyHint text="Todavía no tienes amigos: invita a alguien desde la pestaña Amigos" />
                     )}
-                    <View style={styles.chipRow}>
+                    <View style={styles.chipWrap}>
                       {friends.map((f) => (
-                        <Chip
+                        <FriendChip
                           key={f.id}
-                          label={f.name}
+                          friend={f}
                           selected={borrowerId === f.id}
                           onPress={() => setBorrowerId(f.id)}
                         />
                       ))}
                     </View>
-                    <View style={styles.dateRow}>
-                      <View style={styles.dateField}>
-                        <ThemedText type="small" themeColor="textSecondary">
-                          Fecha del préstamo
-                        </ThemedText>
-                        <TextInput
-                          value={startDate}
-                          onChangeText={setStartDate}
-                          placeholder="AAAA-MM-DD"
-                          placeholderTextColor={theme.textSecondary}
-                          style={inputStyle}
-                        />
-                      </View>
-                      <View style={styles.dateField}>
-                        <ThemedText type="small" themeColor="textSecondary">
-                          Devolución (opcional)
-                        </ThemedText>
-                        <TextInput
-                          value={dueDate}
-                          onChangeText={setDueDate}
-                          placeholder="AAAA-MM-DD"
-                          placeholderTextColor={theme.textSecondary}
-                          style={inputStyle}
-                        />
-                      </View>
+
+                    <ThemedText type="small" themeColor="textSecondary">
+                      ¿Cuándo se lo prestas?
+                    </ThemedText>
+                    <View style={styles.chipWrap}>
+                      <Chip label="Hoy" selected={startDate === todayISO()} onPress={() => setStartDate(todayISO())} />
+                      <Chip
+                        label="Mañana"
+                        selected={startDate === addDaysISO(1)}
+                        onPress={() => setStartDate(addDaysISO(1))}
+                      />
                     </View>
-                    <Button label="Enviar invitación" onPress={() => sendLoan(item)} />
+                    <TextField value={startDate} onChangeText={setStartDate} placeholder="AAAA-MM-DD" />
+
+                    <ThemedText type="small" themeColor="textSecondary">
+                      ¿Para cuándo lo quieres de vuelta? (opcional)
+                    </ThemedText>
+                    <View style={styles.chipWrap}>
+                      <Chip label="Sin fecha" selected={dueDate === ''} onPress={() => setDueDate('')} />
+                      <Chip label="1 semana" selected={dueDate === addDaysISO(7)} onPress={() => setDueDate(addDaysISO(7))} />
+                      <Chip label="2 semanas" selected={dueDate === addDaysISO(14)} onPress={() => setDueDate(addDaysISO(14))} />
+                      <Chip label="1 mes" selected={dueDate === addDaysISO(30)} onPress={() => setDueDate(addDaysISO(30))} />
+                    </View>
+                    {dueDate !== '' && (
+                      <TextField value={dueDate} onChangeText={setDueDate} placeholder="AAAA-MM-DD" />
+                    )}
+
+                    <Button label="Enviar invitación" variant="primary" fullWidth onPress={() => sendLoan(item)} />
+                    <Button label="Cancelar" variant="plain" fullWidth onPress={() => setLendItemId(null)} />
                   </View>
                 )}
               </ItemCard>
             ))}
-
-            {!showForm && <Button label="Registrar objeto" onPress={() => setShowForm(true)} />}
-            {showForm && (
-              <ThemedView type="backgroundElement" style={styles.form}>
-                <ThemedText type="smallBold">Ficha del objeto</ThemedText>
-                <TextInput
-                  value={name}
-                  onChangeText={setName}
-                  placeholder="Nombre (p. ej. Taladro)"
-                  placeholderTextColor={theme.textSecondary}
-                  style={[styles.input, { color: theme.text, backgroundColor: theme.background }]}
-                />
-                <TextInput
-                  value={description}
-                  onChangeText={setDescription}
-                  placeholder="Estado del objeto (p. ej. como nuevo, le falta una pieza…)"
-                  placeholderTextColor={theme.textSecondary}
-                  multiline
-                  style={[styles.input, { color: theme.text, backgroundColor: theme.background }]}
-                />
-                <View style={styles.chipRow}>
-                  {Categories.map((c) => (
-                    <Chip key={c} label={c} selected={category === c} onPress={() => setCategory(c)} />
-                  ))}
-                </View>
-                <View style={styles.photoRow}>
-                  <Button label={photo ? 'Cambiar foto' : 'Elegir foto'} onPress={pickPhoto} />
-                  {photo && <Image source={{ uri: photo }} style={styles.photoPreview} contentFit="cover" />}
-                </View>
-                <View style={styles.actions}>
-                  <Button label="Guardar" onPress={addItem} />
-                  <Button label="Cancelar" variant="danger" onPress={() => setShowForm(false)} />
-                </View>
-              </ThemedView>
-            )}
           </View>
 
           <View style={styles.section}>
-            <ThemedText type="smallBold">De mis amigos</ThemedText>
+            <SectionTitle title="De mis amigos" count={others.length} />
             {others.length === 0 && (
-              <ThemedText type="small" themeColor="textSecondary">
-                Tus amigos aún no han añadido objetos{filter ? ` de ${filter}` : ''}
-              </ThemedText>
+              <EmptyHint text={`Tus amigos aún no han añadido objetos${filter ? ` de ${filter}` : ''}`} />
             )}
             {others.map((item) => (
-              <ItemCard key={item.id} item={item}>
-                {item.loan_status === 'aceptado' && (
-                  <ThemedText type="small" themeColor="textSecondary">
-                    Prestado a {item.loan_borrower_name}
-                  </ThemedText>
-                )}
-              </ItemCard>
+              <ItemCard key={item.id} item={item} />
             ))}
           </View>
         </ScrollView>
@@ -297,35 +301,120 @@ export default function ItemsScreen() {
   );
 }
 
+function SectionTitle({ title, count }: { title: string; count?: number }) {
+  return (
+    <View style={styles.sectionTitle}>
+      <ThemedText type="smallBold" style={styles.sectionTitleText}>
+        {title}
+      </ThemedText>
+      {count != null && count > 0 && (
+        <ThemedText type="small" themeColor="textSecondary">
+          {count}
+        </ThemedText>
+      )}
+    </View>
+  );
+}
+
+function EmptyHint({ text }: { text: string }) {
+  return (
+    <ThemedText type="small" themeColor="textSecondary">
+      {text}
+    </ThemedText>
+  );
+}
+
 function Chip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
+  const theme = useTheme();
   return (
     <Pressable onPress={onPress} style={({ pressed }) => pressed && styles.pressed}>
-      <ThemedView type={selected ? 'backgroundSelected' : 'backgroundElement'} style={styles.chip}>
-        <ThemedText type={selected ? 'smallBold' : 'small'}>{label}</ThemedText>
-      </ThemedView>
+      <View
+        style={[
+          styles.chip,
+          {
+            backgroundColor: selected ? theme.tint : theme.backgroundElement,
+            borderColor: selected ? theme.tint : theme.border,
+          },
+        ]}>
+        <ThemedText type={selected ? 'smallBold' : 'small'} style={{ color: selected ? theme.onTint : theme.text }}>
+          {label}
+        </ThemedText>
+      </View>
     </Pressable>
   );
 }
 
-function ItemCard({ item, children }: { item: Item; children?: React.ReactNode }) {
+function FriendChip({
+  friend,
+  selected,
+  onPress,
+}: {
+  friend: Friend;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  const theme = useTheme();
   return (
-    <ThemedView type="backgroundElement" style={styles.card}>
+    <Pressable onPress={onPress} style={({ pressed }) => pressed && styles.pressed}>
+      <View
+        style={[
+          styles.friendChip,
+          {
+            backgroundColor: selected ? theme.tintSoft : theme.backgroundElement,
+            borderColor: selected ? theme.tint : theme.border,
+          },
+        ]}>
+        <Avatar name={friend.name} size={24} />
+        <ThemedText type={selected ? 'smallBold' : 'small'}>{friend.name}</ThemedText>
+      </View>
+    </Pressable>
+  );
+}
+
+function ItemCard({
+  item,
+  isMine,
+  children,
+}: {
+  item: Item;
+  isMine?: boolean;
+  children?: React.ReactNode;
+}) {
+  const theme = useTheme();
+  return (
+    <Card>
       <View style={styles.cardRow}>
-        {!!item.photo && <Image source={{ uri: item.photo }} style={styles.photo} contentFit="cover" />}
+        {item.photo ? (
+          <Image source={{ uri: item.photo }} style={styles.photo} contentFit="cover" />
+        ) : (
+          <View style={[styles.photo, styles.photoEmpty, { backgroundColor: theme.backgroundSelected }]}>
+            <ThemedText style={styles.photoEmptyIcon}>📦</ThemedText>
+          </View>
+        )}
         <View style={styles.cardInfo}>
-          <ThemedText>{item.name}</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
-            {item.category ? `${item.category} · ` : ''}de {item.owner_name}
+          <ThemedText type="smallBold" style={styles.cardName}>
+            {item.name}
           </ThemedText>
           {!!item.description && (
-            <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" themeColor="textSecondary" numberOfLines={2}>
               {item.description}
             </ThemedText>
           )}
+          <View style={styles.badgeRow}>
+            {!!item.category && <Badge label={item.category} />}
+            {isMine && !item.loan_status && <Badge label="Disponible" tone="tint" />}
+            {item.loan_status === 'pendiente' && (
+              <Badge label={`Esperando a ${item.loan_borrower_name}`} tone="warning" />
+            )}
+            {item.loan_status === 'aceptado' && (
+              <Badge label={`Prestado a ${item.loan_borrower_name}`} tone="warning" />
+            )}
+            {!isMine && <Badge label={`De ${item.owner_name}`} />}
+          </View>
         </View>
       </View>
       {children}
-    </ThemedView>
+    </Card>
   );
 }
 
@@ -340,60 +429,108 @@ const styles = StyleSheet.create({
     maxWidth: MaxContentWidth,
   },
   scroll: {
-    padding: Spacing.four,
+    padding: Spacing.three,
     paddingTop: Spacing.six,
     paddingBottom: BottomTabInset + Spacing.four,
-    gap: Spacing.four,
+    gap: Spacing.three,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   section: {
     gap: Spacing.two,
     alignItems: 'stretch',
   },
-  card: {
-    padding: Spacing.three,
-    borderRadius: Spacing.three,
+  sectionTitle: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
     gap: Spacing.two,
-    alignItems: 'flex-start',
+    marginTop: Spacing.two,
+  },
+  sectionTitleText: {
+    fontSize: 18,
+    lineHeight: 24,
   },
   cardRow: {
     flexDirection: 'row',
     gap: Spacing.three,
     alignItems: 'center',
-    alignSelf: 'stretch',
+  },
+  cardActions: {
+    flexDirection: 'row',
   },
   cardInfo: {
     flex: 1,
-    gap: Spacing.half,
+    gap: Spacing.one,
+  },
+  cardName: {
+    fontSize: 16,
+    lineHeight: 22,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.one,
   },
   photo: {
-    width: 64,
-    height: 64,
-    borderRadius: Spacing.two,
+    width: 76,
+    height: 76,
+    borderRadius: Spacing.three,
   },
-  photoRow: {
-    flexDirection: 'row',
+  photoEmpty: {
     alignItems: 'center',
-    gap: Spacing.three,
+    justifyContent: 'center',
+  },
+  photoEmptyIcon: {
+    fontSize: 28,
   },
   photoPreview: {
-    width: 96,
-    height: 96,
-    borderRadius: Spacing.two,
-  },
-  form: {
-    padding: Spacing.three,
+    width: '100%',
+    height: 180,
     borderRadius: Spacing.three,
-    gap: Spacing.two,
+  },
+  photoPlaceholder: {
+    height: 140,
+    borderRadius: Spacing.three,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.one,
+  },
+  photoIcon: {
+    fontSize: 32,
+  },
+  chipScroll: {
+    marginHorizontal: -Spacing.three,
   },
   chipRow: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+    paddingHorizontal: Spacing.three,
+  },
+  chipWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: Spacing.two,
   },
   chip: {
-    paddingVertical: Spacing.one,
+    paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
-    borderRadius: Spacing.three,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  friendChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    paddingVertical: Spacing.one,
+    paddingLeft: Spacing.one,
+    paddingRight: Spacing.three,
+    borderRadius: 999,
+    borderWidth: 1,
   },
   pressed: {
     opacity: 0.7,
@@ -401,27 +538,9 @@ const styles = StyleSheet.create({
   lendPanel: {
     alignSelf: 'stretch',
     gap: Spacing.two,
-    paddingTop: Spacing.two,
-  },
-  dateRow: {
-    flexDirection: 'row',
-    gap: Spacing.two,
-    flexWrap: 'wrap',
-  },
-  dateField: {
-    flex: 1,
-    minWidth: 140,
-    gap: Spacing.half,
-  },
-  actions: {
-    flexDirection: 'row',
-    gap: Spacing.two,
-  },
-  input: {
-    paddingVertical: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    borderRadius: Spacing.three,
-    fontSize: 14,
+    paddingTop: Spacing.three,
+    borderTopWidth: 1,
+    marginTop: Spacing.one,
   },
   error: {
     color: '#e5484d',

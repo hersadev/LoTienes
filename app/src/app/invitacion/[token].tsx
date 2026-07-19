@@ -1,9 +1,11 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
+import { Card } from '@/components/card';
+import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -53,51 +55,58 @@ export default function InviteScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <ScrollView contentContainerStyle={styles.scroll}>
-          <ThemedText type="subtitle">LoTienes</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
-            La app para prestarte cosas con tus amigos.
-          </ThemedText>
+          <View style={styles.hero}>
+            <View style={[styles.logo, { backgroundColor: theme.tintSoft }]}>
+              <ThemedText style={styles.logoIcon}>🤝</ThemedText>
+            </View>
+            <ThemedText type="subtitle">
+              Lo<ThemedText type="subtitle" themeColor="tint">Tienes</ThemedText>
+            </ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              La app para prestarte cosas con tus amigos.
+            </ThemedText>
+          </View>
 
           {loadError ? (
-            <ThemedView type="backgroundElement" style={styles.card}>
+            <Card style={styles.card}>
               <ThemedText>Esta invitación no existe o el enlace está mal copiado.</ThemedText>
               <ThemedText type="small" style={styles.errorText}>
                 {loadError}
               </ThemedText>
               <Button label="Ir a la app" onPress={goToApp} />
-            </ThemedView>
+            </Card>
           ) : !info || sessionLoading ? (
             <ThemedText type="small" themeColor="textSecondary">
               Cargando invitación…
             </ThemedText>
           ) : done ? (
-            <ThemedView type="backgroundElement" style={styles.card}>
+            <Card style={styles.card}>
               <ThemedText>
                 ¡Hecho, {done.user.name}! {done.inviter.name} y tú ya sois amigos.
               </ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
                 Ya puedes ver sus objetos y pedírselos prestados.
               </ThemedText>
-              <Button label="Entrar en LoTienes" onPress={goToApp} />
-            </ThemedView>
+              <Button label="Entrar en LoTienes" variant="primary" onPress={goToApp} />
+            </Card>
           ) : info.status === 'aceptada' ? (
-            <ThemedView type="backgroundElement" style={styles.card}>
+            <Card style={styles.card}>
               <ThemedText>Esta invitación ya se usó.</ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
                 Pídele a {info.inviter_name} que te mande otra, o entra si ya tienes cuenta.
               </ThemedText>
               <Button label="Ir a la app" onPress={goToApp} />
-            </ThemedView>
+            </Card>
           ) : user && user.id === info.inviter_id ? (
-            <ThemedView type="backgroundElement" style={styles.card}>
+            <Card style={styles.card}>
               <ThemedText>Esta invitación es tuya 😉</ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
                 Compártela desde la pestaña Amigos para que otra persona la acepte.
               </ThemedText>
               <Button label="Ir a la app" onPress={goToApp} />
-            </ThemedView>
+            </Card>
           ) : user ? (
-            <ThemedView type="backgroundElement" style={styles.card}>
+            <Card style={styles.card}>
               <ThemedText>
                 {info.inviter_name} te invita a ser su amigo en LoTienes.
               </ThemedText>
@@ -106,13 +115,13 @@ export default function InviteScreen() {
                   {error}
                 </ThemedText>
               )}
-              <Button label={`Aceptar como ${user.name}`} onPress={accept} />
+              <Button label={`Aceptar como ${user.name}`} variant="primary" fullWidth onPress={accept} />
               <ThemedText type="small" themeColor="textSecondary" onPress={logout}>
                 ¿No eres {user.name}? Cambiar de cuenta
               </ThemedText>
-            </ThemedView>
+            </Card>
           ) : (
-            <ThemedView type="backgroundElement" style={styles.card}>
+            <Card style={styles.card}>
               <ThemedText>
                 {info.inviter_name} te invita a ser su amigo en LoTienes.
               </ThemedText>
@@ -124,25 +133,17 @@ export default function InviteScreen() {
                   {error}
                 </ThemedText>
               )}
-              <TextInput
-                value={name}
-                onChangeText={setName}
-                placeholder="Tu nombre"
-                placeholderTextColor={theme.textSecondary}
-                style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundSelected }]}
-              />
-              <TextInput
+              <TextField value={name} onChangeText={setName} placeholder="Tu nombre" />
+              <TextField
                 value={email}
                 onChangeText={setEmail}
                 placeholder="Tu email"
                 autoCapitalize="none"
                 keyboardType="email-address"
-                placeholderTextColor={theme.textSecondary}
-                style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundSelected }]}
                 onSubmitEditing={accept}
               />
-              <Button label="Aceptar la invitación" onPress={accept} />
-            </ThemedView>
+              <Button label="Aceptar la invitación" variant="primary" fullWidth onPress={accept} />
+            </Card>
           )}
 
           {Platform.OS === 'web' && !done && !loadError && (
@@ -190,17 +191,24 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   card: {
-    padding: Spacing.three,
-    borderRadius: Spacing.three,
     gap: Spacing.three,
     alignItems: 'flex-start',
   },
-  input: {
-    alignSelf: 'stretch',
-    paddingVertical: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    borderRadius: Spacing.three,
-    fontSize: 14,
+  hero: {
+    alignItems: 'center',
+    gap: Spacing.two,
+    paddingVertical: Spacing.four,
+  },
+  logo: {
+    width: 72,
+    height: 72,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoIcon: {
+    fontSize: 36,
+    lineHeight: 44,
   },
   actions: {
     flexDirection: 'row',
