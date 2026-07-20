@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/avatar';
 import { Badge } from '@/components/badge';
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
+import { ScreenBackdrop } from '@/components/screen-backdrop';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { BottomTabInset, DesktopMinWidth, MaxContentWidth, Spacing, WideContentWidth } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { api } from '@/lib/api';
 import { formatDate } from '@/lib/dates';
@@ -25,6 +26,7 @@ const noticeByResult: Record<ShareResult, string | null> = {
 
 export default function FriendsScreen() {
   const theme = useTheme();
+  const wide = useWindowDimensions().width >= DesktopMinWidth;
   const { user, logout } = useSession();
   const [friends, setFriends] = useState<Friend[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
@@ -74,7 +76,8 @@ export default function FriendsScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
+      {wide && <ScreenBackdrop />}
+      <SafeAreaView style={[styles.safeArea, wide && styles.safeAreaWide]}>
         <ScrollView
           contentContainerStyle={styles.scroll}
           refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}>
@@ -91,7 +94,7 @@ export default function FriendsScreen() {
             </ThemedText>
           )}
 
-          <Card highlight>
+          <Card highlight style={wide && styles.inviteCardWide}>
             <ThemedText type="smallBold">Invita a un amigo</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
               Le mandas un enlace; si no tiene la app, desde ahí se registra y quedáis como amigos.
@@ -108,21 +111,23 @@ export default function FriendsScreen() {
                 Todavía no tienes amigos aquí: invita a alguien 👆
               </ThemedText>
             )}
-            {friends.map((friend) => (
-              <Card key={friend.id}>
-                <View style={styles.friendRow}>
-                  <Avatar name={friend.name} size={44} />
-                  <View style={styles.friendInfo}>
-                    <ThemedText type="smallBold" style={styles.friendName}>
-                      {friend.name}
-                    </ThemedText>
-                    <ThemedText type="small" themeColor="textSecondary">
-                      {friend.email} · desde el {formatDate(friend.friends_since)}
-                    </ThemedText>
+            <View style={styles.grid}>
+              {friends.map((friend) => (
+                <Card key={friend.id} style={styles.gridItem}>
+                  <View style={styles.friendRow}>
+                    <Avatar name={friend.name} size={44} />
+                    <View style={styles.friendInfo}>
+                      <ThemedText type="smallBold" style={styles.friendName}>
+                        {friend.name}
+                      </ThemedText>
+                      <ThemedText type="small" themeColor="textSecondary">
+                        {friend.email} · desde el {formatDate(friend.friends_since)}
+                      </ThemedText>
+                    </View>
                   </View>
-                </View>
-              </Card>
-            ))}
+                </Card>
+              ))}
+            </View>
           </View>
 
           {pending.length > 0 && (
@@ -130,19 +135,21 @@ export default function FriendsScreen() {
               <ThemedText type="smallBold" style={styles.sectionTitleText}>
                 Invitaciones sin usar
               </ThemedText>
-              {pending.map((inv) => (
-                <Card key={inv.id}>
-                  <View style={styles.inviteRow}>
-                    <View style={styles.friendInfo}>
-                      <Badge label={`Creada el ${formatDate(inv.created_at)}`} tone="warning" />
-                      <ThemedText type="code" numberOfLines={1} themeColor="textSecondary">
-                        {inviteShareUrl(inv)}
-                      </ThemedText>
+              <View style={styles.grid}>
+                {pending.map((inv) => (
+                  <Card key={inv.id} style={styles.gridItem}>
+                    <View style={styles.inviteRow}>
+                      <View style={styles.friendInfo}>
+                        <Badge label={`Creada el ${formatDate(inv.created_at)}`} tone="warning" />
+                        <ThemedText type="code" numberOfLines={1} themeColor="textSecondary">
+                          {inviteShareUrl(inv)}
+                        </ThemedText>
+                      </View>
+                      <Button label="Compartir" size="sm" onPress={() => share(inv)} />
                     </View>
-                    <Button label="Compartir" size="sm" onPress={() => share(inv)} />
-                  </View>
-                </Card>
-              ))}
+                  </Card>
+                ))}
+              </View>
             </View>
           )}
 
@@ -151,16 +158,18 @@ export default function FriendsScreen() {
               <ThemedText type="smallBold" style={styles.sectionTitleText}>
                 Invitaciones aceptadas
               </ThemedText>
-              {accepted.map((inv) => (
-                <Card key={inv.id}>
-                  <View style={styles.friendRow}>
-                    <Avatar name={inv.accepted_by_name ?? '?'} size={32} />
-                    <ThemedText type="small" themeColor="textSecondary" style={styles.friendInfo}>
-                      La aceptó {inv.accepted_by_name} el {formatDate(inv.accepted_at)}
-                    </ThemedText>
-                  </View>
-                </Card>
-              ))}
+              <View style={styles.grid}>
+                {accepted.map((inv) => (
+                  <Card key={inv.id} style={styles.gridItem}>
+                    <View style={styles.friendRow}>
+                      <Avatar name={inv.accepted_by_name ?? '?'} size={32} />
+                      <ThemedText type="small" themeColor="textSecondary" style={styles.friendInfo}>
+                        La aceptó {inv.accepted_by_name} el {formatDate(inv.accepted_at)}
+                      </ThemedText>
+                    </View>
+                  </Card>
+                ))}
+              </View>
             </View>
           )}
 
@@ -182,16 +191,25 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   safeArea: {
     flex: 1,
     maxWidth: MaxContentWidth,
+  },
+  safeAreaWide: {
+    maxWidth: WideContentWidth,
   },
   scroll: {
     padding: Spacing.three,
     paddingTop: Spacing.six,
     paddingBottom: BottomTabInset + Spacing.four,
     gap: Spacing.three,
+  },
+  inviteCardWide: {
+    maxWidth: 640,
+    width: '100%',
+    alignSelf: 'center',
   },
   section: {
     gap: Spacing.two,
@@ -200,6 +218,16 @@ const styles = StyleSheet.create({
   sectionTitleText: {
     fontSize: 18,
     lineHeight: 24,
+  },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.three,
+  },
+  gridItem: {
+    flexGrow: 1,
+    flexBasis: 320,
+    minWidth: 260,
   },
   friendRow: {
     flexDirection: 'row',

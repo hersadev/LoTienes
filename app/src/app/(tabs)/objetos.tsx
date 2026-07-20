@@ -1,17 +1,18 @@
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/avatar';
 import { Badge } from '@/components/badge';
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
+import { ScreenBackdrop } from '@/components/screen-backdrop';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { BottomTabInset, DesktopMinWidth, MaxContentWidth, Spacing, WideContentWidth } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { api } from '@/lib/api';
 import { addDaysISO, formatDate, todayISO } from '@/lib/dates';
@@ -21,6 +22,7 @@ import { Categories, type Friend, type Item } from '@/lib/types';
 export default function ItemsScreen() {
   const theme = useTheme();
   const userId = useSession().user?.id;
+  const wide = useWindowDimensions().width >= DesktopMinWidth;
   const [items, setItems] = useState<Item[]>([]);
   const [friends, setFriends] = useState<Friend[]>([]);
   const [loading, setLoading] = useState(true);
@@ -140,7 +142,8 @@ export default function ItemsScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
+      {wide && <ScreenBackdrop />}
+      <SafeAreaView style={[styles.safeArea, wide && styles.safeAreaWide]}>
         <ScrollView
           contentContainerStyle={styles.scroll}
           refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}>
@@ -163,7 +166,7 @@ export default function ItemsScreen() {
           )}
 
           {showForm && (
-            <Card>
+            <Card style={wide && styles.formCardWide}>
               <ThemedText type="smallBold">Ficha del objeto</ThemedText>
 
               <Pressable onPress={pickPhoto} style={({ pressed }) => pressed && styles.pressed}>
@@ -227,63 +230,65 @@ export default function ItemsScreen() {
             {mine.length === 0 && (
               <EmptyHint text={`Aún no has registrado objetos${filter ? ` de ${filter}` : ''}`} />
             )}
-            {mine.map((item) => (
-              <ItemCard key={item.id} item={item} isMine>
-                {!item.loan_status && lendItemId !== item.id && (
-                  <View style={styles.cardActions}>
-                    <Button label="Prestar" variant="primary" size="sm" onPress={() => openLend(item)} />
-                  </View>
-                )}
+            <View style={styles.grid}>
+              {mine.map((item) => (
+                <ItemCard key={item.id} item={item} isMine expanded={lendItemId === item.id}>
+                  {!item.loan_status && lendItemId !== item.id && (
+                    <View style={styles.cardActions}>
+                      <Button label="Prestar" variant="primary" size="sm" onPress={() => openLend(item)} />
+                    </View>
+                  )}
 
-                {lendItemId === item.id && !item.loan_status && (
-                  <View style={[styles.lendPanel, { borderTopColor: theme.border }]}>
-                    <ThemedText type="smallBold">¿A quién se lo prestas?</ThemedText>
-                    {friends.length === 0 && (
-                      <EmptyHint text="Todavía no tienes amigos: invita a alguien desde la pestaña Amigos" />
-                    )}
-                    <View style={styles.chipWrap}>
-                      {friends.map((f) => (
-                        <FriendChip
-                          key={f.id}
-                          friend={f}
-                          selected={borrowerId === f.id}
-                          onPress={() => setBorrowerId(f.id)}
+                  {lendItemId === item.id && !item.loan_status && (
+                    <View style={[styles.lendPanel, { borderTopColor: theme.border }]}>
+                      <ThemedText type="smallBold">¿A quién se lo prestas?</ThemedText>
+                      {friends.length === 0 && (
+                        <EmptyHint text="Todavía no tienes amigos: invita a alguien desde la pestaña Amigos" />
+                      )}
+                      <View style={styles.chipWrap}>
+                        {friends.map((f) => (
+                          <FriendChip
+                            key={f.id}
+                            friend={f}
+                            selected={borrowerId === f.id}
+                            onPress={() => setBorrowerId(f.id)}
+                          />
+                        ))}
+                      </View>
+
+                      <ThemedText type="small" themeColor="textSecondary">
+                        ¿Cuándo se lo prestas?
+                      </ThemedText>
+                      <View style={styles.chipWrap}>
+                        <Chip label="Hoy" selected={startDate === todayISO()} onPress={() => setStartDate(todayISO())} />
+                        <Chip
+                          label="Mañana"
+                          selected={startDate === addDaysISO(1)}
+                          onPress={() => setStartDate(addDaysISO(1))}
                         />
-                      ))}
-                    </View>
+                      </View>
+                      <TextField value={startDate} onChangeText={setStartDate} placeholder="AAAA-MM-DD" />
 
-                    <ThemedText type="small" themeColor="textSecondary">
-                      ¿Cuándo se lo prestas?
-                    </ThemedText>
-                    <View style={styles.chipWrap}>
-                      <Chip label="Hoy" selected={startDate === todayISO()} onPress={() => setStartDate(todayISO())} />
-                      <Chip
-                        label="Mañana"
-                        selected={startDate === addDaysISO(1)}
-                        onPress={() => setStartDate(addDaysISO(1))}
-                      />
-                    </View>
-                    <TextField value={startDate} onChangeText={setStartDate} placeholder="AAAA-MM-DD" />
+                      <ThemedText type="small" themeColor="textSecondary">
+                        ¿Para cuándo lo quieres de vuelta? (opcional)
+                      </ThemedText>
+                      <View style={styles.chipWrap}>
+                        <Chip label="Sin fecha" selected={dueDate === ''} onPress={() => setDueDate('')} />
+                        <Chip label="1 semana" selected={dueDate === addDaysISO(7)} onPress={() => setDueDate(addDaysISO(7))} />
+                        <Chip label="2 semanas" selected={dueDate === addDaysISO(14)} onPress={() => setDueDate(addDaysISO(14))} />
+                        <Chip label="1 mes" selected={dueDate === addDaysISO(30)} onPress={() => setDueDate(addDaysISO(30))} />
+                      </View>
+                      {dueDate !== '' && (
+                        <TextField value={dueDate} onChangeText={setDueDate} placeholder="AAAA-MM-DD" />
+                      )}
 
-                    <ThemedText type="small" themeColor="textSecondary">
-                      ¿Para cuándo lo quieres de vuelta? (opcional)
-                    </ThemedText>
-                    <View style={styles.chipWrap}>
-                      <Chip label="Sin fecha" selected={dueDate === ''} onPress={() => setDueDate('')} />
-                      <Chip label="1 semana" selected={dueDate === addDaysISO(7)} onPress={() => setDueDate(addDaysISO(7))} />
-                      <Chip label="2 semanas" selected={dueDate === addDaysISO(14)} onPress={() => setDueDate(addDaysISO(14))} />
-                      <Chip label="1 mes" selected={dueDate === addDaysISO(30)} onPress={() => setDueDate(addDaysISO(30))} />
+                      <Button label="Enviar invitación" variant="primary" fullWidth onPress={() => sendLoan(item)} />
+                      <Button label="Cancelar" variant="plain" fullWidth onPress={() => setLendItemId(null)} />
                     </View>
-                    {dueDate !== '' && (
-                      <TextField value={dueDate} onChangeText={setDueDate} placeholder="AAAA-MM-DD" />
-                    )}
-
-                    <Button label="Enviar invitación" variant="primary" fullWidth onPress={() => sendLoan(item)} />
-                    <Button label="Cancelar" variant="plain" fullWidth onPress={() => setLendItemId(null)} />
-                  </View>
-                )}
-              </ItemCard>
-            ))}
+                  )}
+                </ItemCard>
+              ))}
+            </View>
           </View>
 
           <View style={styles.section}>
@@ -291,9 +296,11 @@ export default function ItemsScreen() {
             {others.length === 0 && (
               <EmptyHint text={`Tus amigos aún no han añadido objetos${filter ? ` de ${filter}` : ''}`} />
             )}
-            {others.map((item) => (
-              <ItemCard key={item.id} item={item} />
-            ))}
+            <View style={styles.grid}>
+              {others.map((item) => (
+                <ItemCard key={item.id} item={item} />
+              ))}
+            </View>
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -379,15 +386,17 @@ function FriendChip({
 function ItemCard({
   item,
   isMine,
+  expanded,
   children,
 }: {
   item: Item;
   isMine?: boolean;
+  expanded?: boolean;
   children?: React.ReactNode;
 }) {
   const theme = useTheme();
   return (
-    <Card>
+    <Card style={expanded ? styles.gridItemWide : styles.gridItem}>
       <View style={styles.cardRow}>
         {item.photo ? (
           <Image source={{ uri: item.photo }} style={styles.photo} contentFit="cover" />
@@ -428,16 +437,25 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   safeArea: {
     flex: 1,
     maxWidth: MaxContentWidth,
+  },
+  safeAreaWide: {
+    maxWidth: WideContentWidth,
   },
   scroll: {
     padding: Spacing.three,
     paddingTop: Spacing.six,
     paddingBottom: BottomTabInset + Spacing.four,
     gap: Spacing.three,
+  },
+  formCardWide: {
+    maxWidth: 640,
+    width: '100%',
+    alignSelf: 'center',
   },
   headerRow: {
     flexDirection: 'row',
@@ -447,6 +465,20 @@ const styles = StyleSheet.create({
   section: {
     gap: Spacing.two,
     alignItems: 'stretch',
+  },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.three,
+  },
+  gridItem: {
+    flexGrow: 1,
+    flexBasis: 320,
+    minWidth: 260,
+  },
+  gridItemWide: {
+    flexBasis: '100%',
+    width: '100%',
   },
   sectionTitle: {
     flexDirection: 'row',
