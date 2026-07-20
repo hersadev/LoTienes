@@ -8,10 +8,12 @@ import {
 } from 'expo-router/ui';
 import { Pressable, View, StyleSheet, useWindowDimensions } from 'react-native';
 
+import { Avatar } from './avatar';
 import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
 
-import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { DesktopMinWidth, MaxContentWidth, Spacing, WideContentWidth } from '@/constants/theme';
+import { useSession } from '@/lib/session';
 
 export default function AppTabs() {
   return (
@@ -60,6 +62,7 @@ export function CustomTabList(props: TabListProps) {
   const { width } = useWindowDimensions();
   const compact = width < CompactWidth;
   const showBrand = width >= BrandMinWidth;
+  const wide = width >= DesktopMinWidth;
   return (
     <View {...props} style={[styles.tabListContainer, compact && styles.tabListCompact]}>
       <ThemedView
@@ -68,6 +71,7 @@ export function CustomTabList(props: TabListProps) {
           styles.innerContainer,
           compact && styles.innerCompact,
           !showBrand && styles.innerCentered,
+          wide && styles.innerWide,
         ]}>
         {showBrand && (
           <ThemedText type="smallBold" style={styles.brandText}>
@@ -76,7 +80,34 @@ export function CustomTabList(props: TabListProps) {
         )}
 
         {props.children}
+
+        <ThemedView type="border" style={styles.divider} />
+        <UserMenu compact={compact} />
       </ThemedView>
+    </View>
+  );
+}
+
+// Identidad de quien ha entrado + salir, siempre a mano en cualquier
+// pestaña (antes solo se podía cerrar sesión desde Amigos).
+function UserMenu({ compact }: { compact: boolean }) {
+  const { user, logout } = useSession();
+  if (!user) return null;
+  return (
+    <View style={styles.userMenu}>
+      <Avatar name={user.name} size={28} />
+      {!compact && (
+        <ThemedText type="small" themeColor="textSecondary" numberOfLines={1} style={styles.userName}>
+          {user.name}
+        </ThemedText>
+      )}
+      <Pressable onPress={logout} hitSlop={10} style={({ pressed }) => pressed && styles.pressed}>
+        <ThemedView type="dangerSoft" style={styles.logoutPill}>
+          <ThemedText type="small" themeColor="danger">
+            Salir
+          </ThemedText>
+        </ThemedView>
+      </Pressable>
     </View>
   );
 }
@@ -106,11 +137,32 @@ const styles = StyleSheet.create({
   innerCompact: {
     paddingHorizontal: Spacing.three,
   },
+  innerWide: {
+    maxWidth: WideContentWidth,
+  },
   innerCentered: {
     justifyContent: 'center',
   },
   brandText: {
     marginRight: 'auto',
+  },
+  divider: {
+    width: 1,
+    height: 24,
+    marginHorizontal: Spacing.one,
+  },
+  userMenu: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  userName: {
+    maxWidth: 120,
+  },
+  logoutPill: {
+    paddingVertical: Spacing.one,
+    paddingHorizontal: Spacing.three,
+    borderRadius: Spacing.three,
   },
   pressed: {
     opacity: 0.7,
