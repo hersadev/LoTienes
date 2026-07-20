@@ -1,14 +1,15 @@
 import { Image } from 'expo-image';
 import { useCallback, useEffect, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Badge, type BadgeTone } from '@/components/badge';
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
+import { ScreenBackdrop } from '@/components/screen-backdrop';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { BottomTabInset, DesktopMinWidth, MaxContentWidth, Spacing, WideContentWidth } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { api } from '@/lib/api';
 import { formatDate } from '@/lib/dates';
@@ -17,6 +18,7 @@ import type { Loan } from '@/lib/types';
 
 export default function LoansScreen() {
   const userId = useSession().user?.id;
+  const wide = useWindowDimensions().width >= DesktopMinWidth;
   const [loans, setLoans] = useState<Loan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -51,7 +53,8 @@ export default function LoansScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
+      {wide && <ScreenBackdrop />}
+      <SafeAreaView style={[styles.safeArea, wide && styles.safeAreaWide]}>
         <ScrollView
           contentContainerStyle={styles.scroll}
           refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}>
@@ -142,7 +145,7 @@ function Section({
       <ThemedText type="smallBold" style={styles.sectionTitleText}>
         {title}
       </ThemedText>
-      {children}
+      <View style={styles.grid}>{children}</View>
     </View>
   );
 }
@@ -171,7 +174,7 @@ function LoanCard({
   const theme = useTheme();
   const mine = loan.owner_id === userId;
   return (
-    <Card highlight={highlight} style={muted && styles.muted}>
+    <Card highlight={highlight} style={[styles.gridItem, muted && styles.muted]}>
       <View style={styles.cardRow}>
         {loan.item_photo ? (
           <Image source={{ uri: loan.item_photo }} style={styles.photo} contentFit="cover" />
@@ -200,10 +203,14 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   safeArea: {
     flex: 1,
     maxWidth: MaxContentWidth,
+  },
+  safeAreaWide: {
+    maxWidth: WideContentWidth,
   },
   scroll: {
     padding: Spacing.three,
@@ -218,6 +225,16 @@ const styles = StyleSheet.create({
   sectionTitleText: {
     fontSize: 18,
     lineHeight: 24,
+  },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.three,
+  },
+  gridItem: {
+    flexGrow: 1,
+    flexBasis: 340,
+    minWidth: 280,
   },
   cardRow: {
     flexDirection: 'row',

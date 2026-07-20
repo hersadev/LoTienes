@@ -81,3 +81,10 @@ export const Spacing = {
 
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
 export const MaxContentWidth = 800;
+
+// A partir de aquí una pantalla ancha (escritorio) puede permitirse un diseño
+// distinto al móvil: más ancho de contenido y, en algunas pantallas, columnas.
+// Coincide con el punto de corte de la landing para que la transición al
+// entrar en la app no se note.
+export const DesktopMinWidth = 960;
+export const WideContentWidth = 1180;

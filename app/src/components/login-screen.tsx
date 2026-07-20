@@ -15,7 +15,7 @@ import { Card } from '@/components/card';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { DesktopMinWidth, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { api } from '@/lib/api';
 import { useSession } from '@/lib/session';
@@ -23,7 +23,7 @@ import type { User } from '@/lib/types';
 
 // En pantallas anchas (web de escritorio) la entrada se presenta como una
 // landing a pantalla completa; por debajo se usa el diseño compacto del móvil.
-const LandingMinWidth = 960;
+// El mismo punto de corte se reutiliza en los paneles internos.
 
 const features = [
   {
@@ -149,7 +149,7 @@ export function LoginScreen() {
     </>
   );
 
-  if (width >= LandingMinWidth) {
+  if (width >= DesktopMinWidth) {
     return (
       <ThemedView style={styles.landingRoot}>
         <ScrollView contentContainerStyle={styles.landingScroll}>
