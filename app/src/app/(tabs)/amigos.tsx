@@ -173,13 +173,17 @@ export default function FriendsScreen() {
             </View>
           )}
 
-          <View style={[styles.sessionRow, { borderTopColor: theme.border }]}>
-            {user && <Avatar name={user.name} size={32} />}
-            <ThemedText type="small" themeColor="textSecondary" style={styles.friendInfo}>
-              Conectado como {user?.name}
-            </ThemedText>
-            <Button label="Salir" variant="danger" size="sm" onPress={logout} />
-          </View>
+          {/* En escritorio la sesión y el botón de salir ya viven en el header
+              de arriba; aquí queda como respaldo en móvil / ventana estrecha. */}
+          {!wide && (
+            <View style={[styles.sessionRow, { borderTopColor: theme.border }]}>
+              {user && <Avatar name={user.name} size={32} />}
+              <ThemedText type="small" themeColor="textSecondary" style={styles.friendInfo}>
+                Conectado como {user?.name}
+              </ThemedText>
+              <Button label="Salir" variant="danger" size="sm" onPress={logout} />
+            </View>
+          )}
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
