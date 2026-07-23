@@ -17,7 +17,11 @@ import { useSession } from '@/lib/session';
 
 export default function AppTabs() {
   return (
-    <Tabs>
+    // backBehavior 'firstRoute' (el valor por defecto) solo guarda [primera, actual]
+    // en el historial de las tabs, así que el 2º cambio de pestaña no hace push en el
+    // historial del navegador. 'fullHistory' añade cada cambio, como una página web normal,
+    // para que "atrás" recorra las pestañas en el orden real en que se visitaron.
+    <Tabs options={{ backBehavior: 'fullHistory' }}>
       <TabSlot style={{ height: '100%' }} />
       <TabList asChild>
         <CustomTabList>
