@@ -15,7 +15,7 @@ import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, DesktopMinWidth, MaxContentWidth, Spacing, WideContentWidth } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { api } from '@/lib/api';
-import { addDaysISO, formatDate, todayISO } from '@/lib/dates';
+import { addDaysISO, formatDate, isValidISODate, todayISO } from '@/lib/dates';
 import { useSession } from '@/lib/session';
 import { Categories, type Friend, type Item } from '@/lib/types';
 
@@ -115,8 +115,12 @@ export default function ItemsScreen() {
       setError('Elige al amigo al que se lo prestas');
       return;
     }
-    if (!startDate.trim()) {
-      setError('Falta la fecha del préstamo');
+    if (!isValidISODate(startDate)) {
+      setError('La fecha de inicio no es válida. Usa el formato AAAA-MM-DD');
+      return;
+    }
+    if (dueDate.trim() && !isValidISODate(dueDate)) {
+      setError('La fecha de devolución no es válida. Usa el formato AAAA-MM-DD');
       return;
     }
     try {

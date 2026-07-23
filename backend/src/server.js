@@ -25,6 +25,19 @@ function currentUser(req, res) {
   return user;
 }
 
+// 'AAAA-MM-DD' con una fecha real: rechaza otros formatos, texto libre
+// ("ayer") y días que no existen (p. ej. 31/02)
+function isValidISODate(value) {
+  if (typeof value !== "string") return false;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(year, month - 1, day);
+  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
+}
+
 const loanQuery = `
   SELECT loans.*, items.name AS item_name, items.photo AS item_photo,
          items.category AS item_category,
@@ -228,6 +241,12 @@ app.post("/api/loans", (req, res) => {
   if (!areFriends(user.id, borrower.id))
     return res.status(403).json({ error: "Solo puedes prestar a tus amigos" });
   if (!start_date) return res.status(400).json({ error: "Falta la fecha del préstamo" });
+  if (!isValidISODate(start_date))
+    return res.status(400).json({ error: "La fecha de inicio no es una fecha válida (AAAA-MM-DD)" });
+  if (due_date && !isValidISODate(due_date))
+    return res
+      .status(400)
+      .json({ error: "La fecha de devolución no es una fecha válida (AAAA-MM-DD)" });
 
   const active = db
     .prepare("SELECT id FROM loans WHERE item_id = ? AND status IN ('pendiente', 'aceptado')")
